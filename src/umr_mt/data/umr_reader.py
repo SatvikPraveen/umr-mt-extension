@@ -57,7 +57,7 @@ def sentence_info_parser(sentence_info):
 def build_graph(graph_info):
     """Join the graph lines into a single string."""
     graph = " ".join(graph_info)
-    graph = quote_special_concepts(graph)
+    graph = quote_invalid_penman_concepts(graph)
     return graph
 
 # Build the record - every record should have a specific format
@@ -105,14 +105,27 @@ def read_umr_file(file_path):
     return records
 
 
-# Quote the special concepts in the case of Czech
-def quote_special_concepts(graph):
-    """Quote concepts not valid for Penman. (Czech specific)"""
-    special_concepts = ['#Forn', '#Idph', '#Percnt', '#Rcp', '#Colon', '#Dash', '#Some', '#Equal', '#Total']
+# Function to check if a concept is valid for Penman
+def is_valid_penman_concept(concept):
+    """Returns True if the concept is valid for Penman."""
+    try:
+        penman.decode(f"( c / {concept})")
+    except Exception:
+        return False
+    return True
+
+
+# Quote invalid Penman concepts
+def quote_invalid_penman_concepts(graph):
+    """Wraps the concepts not valid for Penman in quotes."""
+    special_concepts = set()
+    concepts = re.findall(r"/ ([^\s()]+)", graph)
+    for concept in concepts:
+        if not is_valid_penman_concept(concept):
+            special_concepts.add(concept)
+    func = lambda x: '/ "' + x.replace("\\", "\\\\").replace('"', '\\"') + '"'
     for concept in special_concepts:
-        graph = re.sub(concept, f'"{concept}"', graph)
-    graph = re.sub(r'/ "(?=[\s)])', r'/ "\""', graph)
-    graph = re.sub(r'/ /(?=[\s)])', r'/ "/"', graph)
+        graph = re.sub(r"/ " + re.escape(concept) + r"(?=[\s)])", func(concept), graph)
     return graph
 
 

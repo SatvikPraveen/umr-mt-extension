@@ -2,6 +2,8 @@
 from pathlib import Path
 import re
 import penman
+import logging
+logging.getLogger("penman").setLevel(logging.ERROR)
 
 # Read the file
 def read_file(file_path):

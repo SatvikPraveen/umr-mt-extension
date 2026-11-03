@@ -3,6 +3,7 @@ from umr_mt.data.umr_reader import read_umr_file
 from pathlib import Path
 import json
 import re
+from sacremoses import MosesDetokenizer
 
 # paths to the relevant files and data
 umr_mapping_file = Path("data/raw/umr_v3.0_ae46502/umr_file_name_mapping.txt")
@@ -12,10 +13,12 @@ treebank_data_path = Path("data/raw/ptb_nltk_sample/combined")
 output_file = Path("data/interim/czech_pairs.jsonl")
 
 def read_umr_mapping_file(umr_mapping_file: Path):
+    """Read the umr mapping file"""
     with open(umr_mapping_file, "r", encoding="utf-8") as f:
         return f.read()
 
 def find_czech_wsj_files(mapping_file_content):
+    """returns a list of (WSJ number, Czech UMR file path)"""
     pairs = []
     for line in mapping_file_content.splitlines():
         line = line.strip()
@@ -29,6 +32,7 @@ def find_czech_wsj_files(mapping_file_content):
     return pairs
 
 # def check_count(pairs):
+#     """check if the count pairs are actually authentic"""
 #     for pair in pairs:
 #         czech_records = read_umr_file(pair[1])
 #         english_records = read_ptb_file(treebank_data_path/f"wsj_{pair[0]}.mrg")
@@ -38,6 +42,7 @@ def find_czech_wsj_files(mapping_file_content):
 #     return True
 
 def pair_english_czech(pairs):
+    """pair english and czech texts"""
     list_of_pairs = []
     for wsj, czech_path in pairs:
         czech_records = read_umr_file(czech_path)  # list of records
@@ -49,13 +54,24 @@ def pair_english_czech(pairs):
             record["wsj"] = wsj
             list_of_pairs.append(record)
     return list_of_pairs
-                
+
+
+czech_detokenizer = MosesDetokenizer(lang="en") # creating the detokenizer
+
+def detokenize_czech(text):
+    """detokenize czech texts which are tokenized in the file, uses moses with english rules."""
+    detokenized = czech_detokenizer.detokenize(text.split())
+    return detokenized
 
 
 if __name__ == "__main__":
     mapping_file_content = read_umr_mapping_file(umr_mapping_file)
     pairs = find_czech_wsj_files(mapping_file_content)
     records = pair_english_czech(pairs)
+    
+    for record in records:
+        record['source_text_tokenized'] = record['source_text']
+        record['source_text'] = detokenize_czech(record['source_text'])
     
     output_file.parent.mkdir(parents=True, exist_ok=True)
     with open(output_file, "w", encoding="utf-8") as f:

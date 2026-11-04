@@ -2,6 +2,8 @@
 from pathlib import Path
 import json
 from collections import Counter
+import hashlib
+from umr_mt.prompting.demonstrations import nearest_neighbours
 
 # Paths for interim output per language and the corresponding output.
 czech_path = Path("data/interim/czech_pairs.jsonl")
@@ -9,6 +11,7 @@ latin_path = Path("data/interim/latin_pairs.jsonl")
 portuguese_path = Path("data/interim/portuguese_pairs.jsonl")
 output_folder = Path("data/processed/")
 
+output_file = output_folder / "pairs_with_demos.jsonl"
 
 EXPECTED_TOTAL = 4059
 
@@ -22,7 +25,6 @@ def attach_uid(content_list):
     """Attach uid to the record in the content list."""
     for record in content_list:
         record["uid"] = f"{Path(record["file"]).stem}:{record["position"]}"
-    return content_list
 
 def extract_uid(content_list):
     """Extract attached uids from the records."""
@@ -45,14 +47,44 @@ def check_graph(content_list):
             raise ValueError(f"Graph has new line character in {record["uid"]}")
 
 
+def organize_demos(demo_dict):
+    """organizing demos for easy attachment"""
+    demo_organize = {}
+    for uid, demos in demo_dict.items():
+        demo_uid_list = []
+        demo_scores_list = []
+        for demo_score, demo_uid in demos:
+            demo_uid_list.append(demo_uid)
+            demo_scores_list.append(demo_score)
+        demo_organize[uid] = (demo_uid_list, demo_scores_list)
+
+    return demo_organize
+            
+            
+def attach_demos(records, demo_organize):
+    """Attach demos to the records"""
+    for record in records:
+        record["demo_uids"] = demo_organize[record["uid"]][0]
+        record["demo_scores"] = demo_organize[record["uid"]][1]
+
+
+def check_demos(records):
+    """Check if each record has 5 demo_uid"""
+    for record in records:
+        if len(record["demo_uids"]) != 5:
+            raise ValueError(f"Record {record["uid"]} expected 5, but got {len(record["demo_uids"])} demos !!!")
+        if record["uid"] in record["demo_uids"]:
+            raise ValueError(f"Record {record["uid"]} has its own id in the demo ids !!!")
+
+
 if __name__ == "__main__":
-    czech_content = read_jsonl(czech_path)
-    czech_content_uid = attach_uid(czech_content)
-    latin_content = read_jsonl(latin_path)
-    latin_content_uid = attach_uid(latin_content)
-    portuguese_content = read_jsonl(portuguese_path)
-    portuguese_content_uid = attach_uid(portuguese_content)
-    combined_list = czech_content_uid + latin_content_uid + portuguese_content_uid
+    czech_records = read_jsonl(czech_path)
+    attach_uid(czech_records)
+    latin_records = read_jsonl(latin_path)
+    attach_uid(latin_records)
+    portuguese_records = read_jsonl(portuguese_path)
+    attach_uid(portuguese_records)
+    combined_list = czech_records + latin_records + portuguese_records
     if len(combined_list) != EXPECTED_TOTAL:
         raise ValueError(f'Expected {EXPECTED_TOTAL} but got {len(combined_list)}')
 
@@ -67,6 +99,35 @@ if __name__ == "__main__":
     check_graph(combined_list)
 
     count_cases = Counter(c["language"] for c in combined_list)
+
+    latin_demos = nearest_neighbours(latin_records)
+    portuguese_demos = nearest_neighbours(portuguese_records)
+    czech_demos = nearest_neighbours(czech_records)
+
+    latin_demos_organized = organize_demos(latin_demos)
+    portuguese_demos_organized = organize_demos(portuguese_demos)
+    czech_demos_organized = organize_demos(czech_demos)
+
+    attach_demos(latin_records, latin_demos_organized)
+    attach_demos(portuguese_records, portuguese_demos_organized)
+    attach_demos(czech_records, czech_demos_organized)
+
     print(count_cases)
+    print(latin_records[0]["demo_uids"])
+    print(portuguese_records[0]["demo_uids"])
+
+    check_demos(latin_records)
+    check_demos(portuguese_records)
+    check_demos(czech_records)
 
 
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_file, "w", encoding="utf-8") as f:
+        for record in combined_list:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    print(f"Saved {len(combined_list)} records to {output_file}")
+
+    digest = hashlib.sha256(output_file.read_bytes()).hexdigest()
+    line = f"{digest}  {output_file.name}\n"
+    (output_folder / "SHA256SUMS").write_text(line, encoding="utf-8")
+    print(line, end="")

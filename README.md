@@ -19,13 +19,13 @@ Czech, Portuguese, and Latin graphs have been sourced from UMR 3.0. For the tran
 For the language pairs: 
 - Czech:
     - The UMR graphs are an automatic conversion of the PCEDT part of PDT-C. PCEDT's Czech is a translation of the Wall Street Journal.
-    - 3914 sentences have been sourced from wsj_0001-wsj_0199 files
+    - 3,914 sentences have been sourced from wsj_0001-wsj_0199 files
     - the English is the Penn Treebank original, paired by file number, then sentence position. 
 - Latin: 50 manually annotated sentences, one document. The English translation is in the same file.
 - Portuguese:
     - 96 sentences from many PUD articles but packaged as a single UMR document. 
-    - matched automatically to Portuguese PUD by difflib ratio on normalised text with 31 at >= 0.90
-    - All of these 96 checked by hand with 1 wrong automatic match, excluded. So, we have 95 usable pairs.
+    - Matched automatically to Portuguese PUD by difflib ratio on normalised text with 31 at >= 0.90
+    - All of these 96 checked by hand with 1 wrong automatic match `(S000045)` excluded. So, we have 95 usable pairs.
     - English is taken from PUD by sent_id.
 
 
@@ -36,7 +36,7 @@ The check run is automatic: each concept is tested with penman, and the ones it 
 
 
 ## Czech detokenization
-The source text in the case of Czech is tokenized and hence, there is a need to detokenize it. The tool utilized is `sacremoses 0.2.0`, `MosesDetokenizer(lang="en")` which means utilizing English rules which are mostly around punctuation. The czech rules merged numbers into adjacent words. The english rules caused no such issues.
+The source text in the case of Czech is tokenized and hence, there is a need to detokenize it. The tool utilized is `sacremoses 0.2.0`, `MosesDetokenizer(lang="en")` which means utilizing English rules which are mostly around punctuation. The Czech rules merged numbers into adjacent words. The English rules caused no such issues.
 
 ## Checksum
 
@@ -46,11 +46,25 @@ d74766be923f42e4666ee5e2a1c6e911ccc6953b4836bd3a76bdbb3c641c014d  data/interim/p
 
 shasum -a 256 data/interim/portuguese_pairs.jsonl
 cff162f7f46ae1f19113d02248d80e506ccf1979a7cc53eb4fff8d9af4651b1f  data/interim/portuguese_pairs.jsonl
+
+shasum -a 256 data/processed/pairs_with_demos.jsonl
+50205f79ba19d7c4dd99b684e90ab61c617fdcda64be883e8a32bba5d179a0f8  data/processed/pairs_with_demos.jsonl
 ```
 
-## Latin duplicate ids
-One Latin `sentence id` (`SlaT-2775`) is used for two different sentences. 
-Records are identified by file and position instead of sentence_id.
+## Duplicate sentence ids
+Czech has 135 repeated sentence ids (same number repeats in different files, number restarts) and 1 in Latin (SlaT-2775).
+The duplicate sentence ids have been taken care of by creating unique uid for each of the cases. The idea is described in the Processed Data Section.
+
+## Processed Data Section
+The processed data is available as a single file (`data/processed/pairs_with_demos.jsonl`) which consists of 4059 records (Czech 3914, Portuguese 95, Latin 50). The `data/processed/SHA256SUMS` file checks it (`shasum -a 256 -c SHA256SUMS`).
+Sentence id is not unique and hence, a unique id was created for each using uid = UMR file stem + : + position (e.g. czech_umr-4775:0).
+Following the paper "Can Uniform Meaning Representation Help GPT-4 Translate from Indigenous Languages?":
+- The 5 nearest neighbours by sentence chrF (sacrebleu 2.6.0) on the source text within the same language. Ties are broken by uid.
+- The sentence itself is excluded by uid.
+- The candidate is the hypothesis and the query the reference.
+- Additionally, we store `demo_uids` and `demo_scores` for each of the records.
+
+Identical sentences have been allowed for demonstration, following the paper.
 
 ## Licences
 
@@ -63,6 +77,7 @@ Records are identified by file and position instead of sentence_id.
 
 
 ## Caveats
+- The 6 Czech records "Podmínky nebyly zveřejněny." each get the other 5 identical copies as demonstrations (chrF 100), so their five-shot prompts effectively contain the answer as a result of allowing the identical sentences.
 - Contamination: WSJ, PUD, and Latin Classics are all public.
 - Translationese: the Czech was translated from the English references.
 - Converted graphs: the Czech graphs are automatic, not hand-annotated.

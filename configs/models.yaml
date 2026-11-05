@@ -1,0 +1,19 @@
+# shared settings
+generation:
+  max_new_tokens: 256
+  do_sample: false
+dtype: bfloat16
+
+
+# models
+models:
+  gemma3_12b:
+    hf_id: google/gemma-3-12b-it
+    revision: "96b6f1eccf38110c56df3a15bffe176da04bfd80"
+    context_length: 131072
+    template_options: {}
+  qwen3_8b:
+    hf_id: Qwen/Qwen3-8B
+    revision: "b968826d9c46dd6066d109eabc6255188de91218"
+    context_length: 32768
+    template_options: {enable_thinking: false}

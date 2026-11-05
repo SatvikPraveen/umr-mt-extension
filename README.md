@@ -49,13 +49,16 @@ cff162f7f46ae1f19113d02248d80e506ccf1979a7cc53eb4fff8d9af4651b1f  data/interim/p
 
 shasum -a 256 data/processed/pairs_with_demos.jsonl
 50205f79ba19d7c4dd99b684e90ab61c617fdcda64be883e8a32bba5d179a0f8  data/processed/pairs_with_demos.jsonl
+
+shasum -a 256 data/processed/prompts.jsonl
+b7eb43678d42f64b8cc9e70c3b5d8610b95f1fe7abad914ff01c7cd8c71e4c77  data/processed/prompts.jsonl
 ```
 
 ## Duplicate sentence ids
 Czech has 135 repeated sentence ids (same number repeats in different files, number restarts) and 1 in Latin (SlaT-2775).
 The duplicate sentence ids have been taken care of by creating unique uid for each of the cases. The idea is described in the Processed Data Section.
 
-## Processed Data Section
+## Processed Data
 The processed data is available as a single file (`data/processed/pairs_with_demos.jsonl`) which consists of 4059 records (Czech 3914, Portuguese 95, Latin 50). The `data/processed/SHA256SUMS` file checks it (`shasum -a 256 -c SHA256SUMS`).
 Sentence id is not unique and hence, a unique id was created for each using uid = UMR file stem + : + position (e.g. czech_umr-4775:0).
 Following the paper "Can Uniform Meaning Representation Help GPT-4 Translate from Indigenous Languages?":
@@ -65,6 +68,47 @@ Following the paper "Can Uniform Meaning Representation Help GPT-4 Translate fro
 - Additionally, we store `demo_uids` and `demo_scores` for each of the records.
 
 Identical sentences have been allowed for demonstration, following the paper.
+
+## Prompts
+The file: data/processed/prompts.jsonl has been created with each of the prompts (16,236 prompts = 4 protocols × 4,059 records). 
+Each has prompt_id (uid|protocol), uid, language, protocol and messages (system + user). 
+
+- Prompt design and protocols have been taken from the paper: "Can Uniform Meaning Representation Help GPT-4 Translate from Indigenous Languages?"
+
+Some additional decisions which have influenced prompt design:
+- instructions are one line each, with newlines separating the parts.
+- demonstrations are ordered most similar last.
+- graphs are single-line PENMAN with variables kept.
+- the language names are Czech, Latin and Portuguese.
+- "narrative documents" is kept for all languages, although Czech is WSJ news and Portuguese is news and Wikipedia.
+
+
+## Prompt lengths and model selection
+The file scripts/measure_prompt_lengths.py counts characters, and tokens with each candidate's own tokenizer and chat template. 
+A budget of 256 tokens has been reserved for translations. 
+
+- The idea is to accomodate each of the prompts. Thus, a budget is set and the prompts are counted over it: the context should accomodate for both the translation and prompt.
+
+- The over-budget table (of 16,236 prompts):
+
+| Candidate      | Context | Over budget                                             |
+|----------------|---------|---------------------------------------------------------|
+| OLMo-2-13B     | 4,096   | 766 (Czech five-shot + UMR 756 of 3,914; Latin 9 of 50) |
+| EuroLLM-9B     | 4,096   | 826 (Czech 811; Latin 14)                               |
+| Aya-Expanse-8B | 8,192   | 6                                                       |
+| Qwen3-8B       | 32,768  | 0                                                       |
+| Gemma-3-12B    | 131,072 | 0                                                       |
+
+- The selection rule: every prompt must fit with no trimming; two different families; 8–13B. Result: Gemma-3-12B-it + Qwen3-8B, with the pinned revisions 96b6f1eccf38110c56df3a15bffe176da04bfd80 and b968826d9c46dd6066d109eabc6255188de91218. The pinned revision improves reproducibility. 
+- Caveat: neither the Qwen3 report (119 languages) nor Gemma 3 (140 languages, per the model card) names Czech explicitly. Portuguese appears in Qwen3's benchmarks.
+
+## Chat template
+- Gemma 3 has no system role. The system prompt goes to the start of the first user turn.
+- Qwen3 runs with enable_thinking=False.
+- Both models' default generation settings sample. Decoding is set explicitly to greedy (do_sample=False) as a result. Greedy decoding can occasionally get stuck repeating a phrase. Thus, a cap of 256-token has been kept in place. 
+    - Greedy enhances reproducibility and prior work have set the temperature 0.
+
+
 
 ## Licences
 
@@ -76,9 +120,15 @@ Identical sentences have been allowed for demonstration, following the paper.
 |English PUD and Portuguese PUD|CC BY-SA 3.0|
 
 
+
+
+
 ## Caveats
-- The 6 Czech records "Podmínky nebyly zveřejněny." each get the other 5 identical copies as demonstrations (chrF 100), so their five-shot prompts effectively contain the answer as a result of allowing the identical sentences.
-- Contamination: WSJ, PUD, and Latin Classics are all public.
+- 16 Czech records have at least one demonstration whose English translation is identical to their own reference.
+    - 10 with an identical Czech source
+    - 6 with different Czech but identical English: "Terms weren't disclosed." ×2, "Who's telling the truth?" ×2, "In other commodity markets yesterday:" ×2.
+    - Their five shot prompts contain the answer as a result.
+- Contamination: WSJ, PUD, and Latin Classics are all public. The chosen models' training data is undisclosed, so contamination is unknown.
 - Translationese: the Czech was translated from the English references.
 - Converted graphs: the Czech graphs are automatic, not hand-annotated.
 - Size: Latin has only 50 sentences, so the results are indicative.

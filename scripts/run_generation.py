@@ -43,7 +43,7 @@ if __name__ == "__main__":
     required_prompts = [prompt for prompt in prompt_content if prompt["protocol"] in args.protocols and prompt["language"] in args.languages]
     print(f"Requested number of prompts: {len(required_prompts)}")
 
-    model_folder = raw_folder / args.model
+    model_folder = raw_folder / args.model / f"bs{args.batch_size}"
     model_folder.mkdir(parents=True, exist_ok=True)
     done = set()
 
@@ -106,10 +106,3 @@ if __name__ == "__main__":
 
     print(f"done: {n_written} written, {n_capped} hit the cap, {time.perf_counter() - t0:.0f}s total", flush=True)
 
-
-    
-
-
-    
-
-    

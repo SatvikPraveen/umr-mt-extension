@@ -109,7 +109,8 @@ if __name__ == "__main__":
             chrf, chrf_sig = chrf_scores(hyps, refs_text)
             bs, bs_hash = bertscore_f1(hyps, refs_text)
             metric_info["chrf"] = chrf_sig
-            metric_info["bertscore"] = bs_hash
+            if bs_hash:
+                metric_info["bertscore"] = bs_hash
 
             for lang_record, c, b in zip(lang_records, chrf, bs):
                 dict_intermediate = {}

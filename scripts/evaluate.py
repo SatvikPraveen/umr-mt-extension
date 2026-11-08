@@ -139,7 +139,7 @@ if __name__ == "__main__":
 
         print(f"Confirmation: Protocol - {protocol} | number of lines written: {len(scored)} | mean chrf: {sum(s["chrf"] for s in scored) / len(scored):.2f}")
     
-    pairs = [("zero_shot", "zero_shot_umr"), ("zero_shot", "five_shot"), ("five_shot", "five_shot_umr")]
+    pairs = [("zero_shot", "zero_shot_umr"), ("zero_shot", "five_shot"), ("five_shot", "five_shot_umr"), ("zero_shot_umr", "five_shot_umr")]
     results = []
     for language in args.languages:
         for metric in ("chrf", "bertscore_f1"):
@@ -172,7 +172,7 @@ if __name__ == "__main__":
                 )
 
 
-    # Holm block: up to 3 comparisons of one language x metric are corrected together
+    # Holm block: up to 4 comparisons of one language x metric are corrected together
     for language in args.languages:
         for metric in ("chrf", "bertscore_f1"):
             family = [r for r in results if r["language"] == language and r["metric"] == metric]
